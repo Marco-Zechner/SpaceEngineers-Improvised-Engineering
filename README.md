@@ -1,16 +1,77 @@
-----
-If you publish your mod then the published version (you have to download it again from steam)
-Should get a metadata.mod file (not used, so ignore it)
-And it should get a "modinfo.sbmi" file, which is used by steam to know which mod is your mod, so you can update it instead of creating a new mod again and again.
-It should contain this below with your the 2 numbers entered.
+https://steamcommunity.com/sharedfiles/filedetails/?id=2891367014
 
-<?xml version="1.0"?>
-<MyObjectBuilder_ModInfo xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <SteamIDOwner>YourSteamID</SteamIDOwner>
-  <WorkshopId>YouritemID</WorkshopId>
-</MyObjectBuilder_ModInfo>
+# A Fully Networked Grid Pickup / Holding / Manipulation System
 
+You can:
 
-----
-If you want to Rename your mod rename 
-- the parent Folder (which holds this README.txt)
+- Grab grids (default up to **20×20×20 m**)
+- Carry / drag
+- Rotate them (via vanilla keybinds)
+- Throw ~~warheads~~ at your friends
+- Carry a small self-built gatling gun around (video)
+- Align to camera or a reference grid
+- Stores per-grid settings automatically (lost after disconnect)
+
+Use `/IME` or `/IME help` in chat for commands.
+
+---
+
+## Multiplayer
+
+Works in:
+
+- Singleplayer
+- Client-hosted worlds
+- Dedicated servers
+
+Clients move grids correctly.  
+All forces and rotation go through a **server-validated system**.
+
+---
+
+# Controls
+
+| Action              | Key                               | Description                                     |
+|---------------------|-----------------------------------|-------------------------------------------------|
+| Grab / Drop         | R (Reload binding)                | Pick up or release grids                        |
+| Rotation Mode       | LMB (Primary tool action)         | Toggle or hold rotation (configurable)          |
+| Change Grab Point   | RMB (Secondary tool action)       | Hit ↔ Center of Mass                            |
+| Throw               | LMB hold + RMB                    | Throw forward                                   |
+| Distance            | Scrollwheel (hardcoded)           | Move grid closer / farther                     |
+| Reference Grid      | MMB (hardcoded)                   | Set / clear reference grid                     |
+| Toggle Alignment    | Shift (hardcoded)                 | Camera ↔ Grid alignment, disabled while holding W (sprinting) |
+| Cycle Facing        | Alt (hardcoded)                   | Change “towards” face                           |
+| Cycle Up Face       | Ctrl (hardcoded)                  | Change “up” face                                |
+
+---
+
+# In-game Configuration
+
+Options that can be changed in chat:
+
+## In-game settings
+
+- `/IME modes` – show / hide notifications  
+- `/IME rotation` – toggle / hold rotation  
+- `/IME keyboard2` – enable CTRL + WASDQE rotation  
+- `/IME grabTool` – grab with tool equipped  
+- `/IME holdUi` – keep holding during menus / chat  
+- `/IME offset` – toggle close-grid offset  
+- `/IME lockUse` – interaction while holding  
+
+## Other
+
+- `/IME news` – show last update message  
+- `/IME supporters` – list supporters  
+
+## Dev
+
+- `/IME debug` – toggle debug info  
+- `/IME state` – show config values  
+- `/IME reset` – clear per-grid states  
+
+Most commands accept `on / true` or `off / false`  
+(if nothing is provided, they toggle).
+
+There are more settings (e.g. max size, lift force, etc.), but those can **only** be changed via `config.xml` in the world folder:
+`%appdata%\spaceengineers\saves\yoursteamid64\yourworldname\Storage\Improvised_Experimentation_mz_00956\config.xml`
