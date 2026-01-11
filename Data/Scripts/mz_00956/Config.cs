@@ -10,6 +10,10 @@ namespace mz_00956.ImprovisedEngineering
         public double flyingForce;
         public double groundForce;
 
+        public double alignMaxAngularVelocity;
+        public double alignMaxLinearVelocity;
+        public double alignMaxTorque;
+
         public double reach;
         public double throwForce;
         public double maxSize;
@@ -52,6 +56,10 @@ namespace mz_00956.ImprovisedEngineering
             {
                 flyingForce = 10000,
                 groundForce = 20000,
+
+                alignMaxAngularVelocity = 180,
+                alignMaxLinearVelocity = 20,
+                alignMaxTorque = 1e7,
 
                 reach = 8,
                 throwForce = 100000,
@@ -97,6 +105,36 @@ namespace mz_00956.ImprovisedEngineering
             }
 
             set { if (improvisedConfig.groundForce != value) { improvisedConfig.groundForce = value; Save(); } }
+        }
+
+        public static double AlignMaxAngularVelocity
+        {
+            get
+            {
+                return improvisedConfig.alignMaxAngularVelocity;
+            }
+
+            set { if (improvisedConfig.alignMaxAngularVelocity != value) { improvisedConfig.alignMaxAngularVelocity = value; Save(); } }
+        }
+
+        public static double AlignMaxLinearVelocity
+        {
+            get
+            {
+                return improvisedConfig.alignMaxLinearVelocity;
+            }
+
+            set { if (improvisedConfig.alignMaxLinearVelocity != value) { improvisedConfig.alignMaxLinearVelocity = value; Save(); } }
+        }
+
+        public static double AlignMaxTorque
+        {
+            get
+            {
+                return improvisedConfig.alignMaxTorque;
+            }
+
+            set { if (improvisedConfig.alignMaxTorque != value) { improvisedConfig.alignMaxTorque = value; Save(); } }
         }
 
         public static double Reach

@@ -52,6 +52,14 @@ namespace mz_00956.ImprovisedEngineering
         public bool HoldingTool;
         [ProtoMember(14)]
         public bool LookingAtGrid;
+        [ProtoMember(15)]
+        public bool AlignedMode;
+        [ProtoMember(16)]
+        public long RelativeGridID;
+        [ProtoMember(17)]
+        public int FaceTowardsIndex;
+        [ProtoMember(18)]
+        public int FaceUpIndex;
 
         public ServerGridHandler serverGridHandler;
 
@@ -71,7 +79,11 @@ namespace mz_00956.ImprovisedEngineering
             float angularVelocityDamping,
             bool disableInteractions,
             bool holdingTool,
-            bool lookingAtGrid)
+            bool lookingAtGrid,
+            bool alignedMode,
+            long relativeGridID,
+            int faceTowardsIndex,
+            int faceUpIndex)
         {
             GridID = gridID;
             HitPos = hitPos;
@@ -87,6 +99,10 @@ namespace mz_00956.ImprovisedEngineering
             DisableInteractions = disableInteractions;
             HoldingTool = holdingTool;
             LookingAtGrid = lookingAtGrid;
+            AlignedMode = alignedMode;
+            RelativeGridID = relativeGridID;
+            FaceTowardsIndex = faceTowardsIndex;
+            FaceUpIndex = faceUpIndex;
         }
 
         public override bool Received()
@@ -95,7 +111,9 @@ namespace mz_00956.ImprovisedEngineering
             {
                 Debug.Log($"GridMovePacket.Received: Server received packed from a player {SenderId}", informUser: true);
 
-                UpdateGrid(GridID, HitPos, DesiredDistance, GrabCenter, CurrentRotationInput, Rotating, Holding, PlayerIdentityId, GridIDGround, HandOffset, AngularVelocityDamping, DisableInteractions, HoldingTool, LookingAtGrid, SenderId);
+                UpdateGrid(GridID, HitPos, DesiredDistance, GrabCenter, CurrentRotationInput, Rotating, Holding, 
+                PlayerIdentityId, GridIDGround, HandOffset, AngularVelocityDamping, DisableInteractions, HoldingTool, 
+                LookingAtGrid, AlignedMode, RelativeGridID, FaceTowardsIndex, FaceUpIndex, SenderId);
             }
 
             return false; // relay packet to other clients (only works if server receives it)
@@ -116,6 +134,10 @@ namespace mz_00956.ImprovisedEngineering
             bool disableInteractions,
             bool holdingTool,
             bool lookingAtGrid,
+            bool alignedMode,
+            long relativeGridID,
+            int faceTowardsIndex,
+            int faceUpIndex,
             ulong senderID)
         {
             bool blockInteraction = !holding || gridIDGround == -2 || !disableInteractions || holdingTool || !lookingAtGrid;
@@ -145,6 +167,10 @@ namespace mz_00956.ImprovisedEngineering
                         player.GridIDGround = gridIDGround;
                         player.HandOffset = handOffset;
                         player.AngularVelocityDamping = angularVelocityDamping;
+                        player.AlignedMode = alignedMode;
+                        player.RelativeGridID = relativeGridID;
+                        player.FaceTowardsIndex = faceTowardsIndex;
+                        player.FaceUpIndex = faceUpIndex;
                     }
                     else
                     {
@@ -167,6 +193,10 @@ namespace mz_00956.ImprovisedEngineering
                         GridIDGround = gridIDGround,
                         HandOffset = handOffset,
                         AngularVelocityDamping = angularVelocityDamping,
+                        AlignedMode = alignedMode,
+                        RelativeGridID = relativeGridID,
+                        FaceTowardsIndex = faceTowardsIndex,
+                        FaceUpIndex = faceUpIndex,
                     });
                 }
                 ServerGridHandler.grids[gridID] = grid;
@@ -191,6 +221,10 @@ namespace mz_00956.ImprovisedEngineering
                             GridIDGround = gridIDGround,
                             HandOffset = handOffset,
                             AngularVelocityDamping = angularVelocityDamping,
+                            AlignedMode = alignedMode,
+                            RelativeGridID = relativeGridID,
+                            FaceTowardsIndex = faceTowardsIndex,
+                            FaceUpIndex = faceUpIndex,
                         }
                     },
                 });

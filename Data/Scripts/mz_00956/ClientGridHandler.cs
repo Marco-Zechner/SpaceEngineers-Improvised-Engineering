@@ -7,17 +7,14 @@ using System.Collections.Generic;
 using System;
 using VRage.Utils;
 using VRage.Game;
-using Sandbox.Game.Entities.Character.Components;
 using VRage.Input;
-using System.Linq;
+using System.Text;
 
 namespace mz_00956.ImprovisedEngineering
 {
     [MySessionComponentDescriptor(MyUpdateOrder.AfterSimulation)]
     public class ClientGridHandler : MySessionComponentBase
     {
-
-
         // the ID in this must be unique between other mods.
         // usually suggested to be the last few numbers of your workshopId.
         public NetworkProtobuf Networking = new NetworkProtobuf(56161);
@@ -75,10 +72,13 @@ namespace mz_00956.ImprovisedEngineering
             MyAPIGateway.Utilities.MessageEnteredSender -= Utilities_MessageReceived;
             Networking?.Unregister();
             Networking = null;
+
+            base.UnloadData();
         }
 
         public override void UpdateAfterSimulation()
         {
+
             int validMode = ValidContext();
             if (validMode < 0)
             {
@@ -153,7 +153,11 @@ namespace mz_00956.ImprovisedEngineering
                         0f,
                         Config.LockUse,
                         MyAPIGateway.Session.Player?.Character.EquippedTool != null,
-                        false
+                        false,
+                        false,
+                        -1,
+                        0,
+                        0
                     ));
                     Debug.Log($"ClientGridHandler.DropGrid: Sent drop packet to server");
                 }
@@ -420,7 +424,11 @@ namespace mz_00956.ImprovisedEngineering
                     dampening,
                     Config.LockUse,
                     MyAPIGateway.Session.Player?.Character.EquippedTool != null,
-                    lookingAtGrid
+                    lookingAtGrid,
+                    alignToReference,
+                    relativeGrid != null ? relativeGrid.EntityId : -1,
+                    faceTowardsIndex,
+                    faceUpIndex
                 ));
                 Debug.Log($"ClientGridHandler.MoveGrid: Sent move&rotate packet to server");
             }
@@ -447,7 +455,11 @@ namespace mz_00956.ImprovisedEngineering
                         dampening,
                         Config.LockUse,
                         MyAPIGateway.Session.Player?.Character.EquippedTool != null,
-                        lookingAtGrid
+                        lookingAtGrid,
+                        alignToReference,
+                        relativeGrid != null ? relativeGrid.EntityId : -1,
+                        faceTowardsIndex,
+                        faceUpIndex
                     ));
                     Debug.Log($"ClientGridHandler.MoveGrid: Sent throw packet to server");
                     DropGridLocal();
@@ -773,7 +785,7 @@ namespace mz_00956.ImprovisedEngineering
             }
 
             // (could use sprint controls to make it more configurable, but you never know what player set for sprint)
-            if (IsKeyDown(MyKeys.Shift) && validMode > 0 && !MyAPIGateway.Input.IsKeyPress(MyKeys.W))
+            if (IsKeyDown(MyKeys.Shift) && validMode > 0 && !IsKey(MyKeys.W))
             {
                 alignToReference = !alignToReference;
                 Debug.Log($"ClientGridHandler.Rotate: Toggled alignToReference to {alignToReference}", informUser: true);
@@ -782,9 +794,6 @@ namespace mz_00956.ImprovisedEngineering
                         ? "Alignment: ON" 
                         : "Alignment: OFF");
             }
-
-            if (alignToReference)
-                torque += ComputeFaceAlignTorqueLocal(faceTowardsIndex, faceUpIndex, ref angularVelocityDamping) * MAX_TORQUE;
 
             if (IsKeyDown(MyKeys.Alt) && validMode > 0)
             {
@@ -836,129 +845,6 @@ namespace mz_00956.ImprovisedEngineering
             Visualization.DrawLineDirect(center, end, 0, 0, 255);
         }
 
-        const float DEADZONE_DEG = 3f;
-
-        private Vector3D ComputeFaceAlignTorqueLocal(int faceTowardsIndex, int faceUpIndex, ref float angularVelocityDamping)
-        {
-            if (heldGrid?.Physics == null)
-                return Vector3D.Zero;
-
-            // Reference frame: camera or relative grid
-            MatrixD refMatrix;
-            bool haveRelative = relativeGrid != null && !relativeGrid.Closed && !relativeGrid.MarkedForClose;
-
-            if (haveRelative)
-                refMatrix = relativeGrid.WorldMatrix;
-            else
-                refMatrix = MyAPIGateway.Session.Player.Character.GetHeadMatrix(true);
-
-            var gridMatrix = heldGrid.WorldMatrix;
-            var gridRot    = (Matrix)gridMatrix;
-            var invGridRot = Matrix.Transpose(gridRot); // world -> grid-local
-
-            // ---- current face directions in WORLD (same as before) ----
-            Vector3D curT_world = GetFaceDirWorld(gridMatrix, faceTowardsIndex);
-            Vector3D curU_world = GetFaceDirWorld(gridMatrix, faceUpIndex);
-
-            if (curT_world.LengthSquared() < 1e-6f || curU_world.LengthSquared() < 1e-6f)
-                return Vector3D.Zero;
-
-            curT_world = Vector3D.Normalize(curT_world);
-            curU_world = Vector3D.Normalize(curU_world);
-
-            // make U orthogonal to T
-            curU_world = Vector3D.Normalize(curU_world - curT_world * Vector3D.Dot(curT_world, curU_world));
-            Vector3D curR_world = Vector3D.Normalize(Vector3D.Cross(curT_world, curU_world));
-
-            // ---- desired directions in WORLD (same as before) ----
-            Vector3D desT_world = -Vector3D.Normalize(refMatrix.Forward);
-            Vector3D desU_world =  Vector3D.Normalize(refMatrix.Up);
-
-            desU_world = Vector3D.Normalize(desU_world - desT_world * Vector3D.Dot(desT_world, desU_world));
-            Vector3D desR_world = Vector3D.Normalize(Vector3D.Cross(desT_world, desU_world));
-
-            // ---- transform everything to GRID-LOCAL ----
-            Vector3D curT_local = Vector3D.TransformNormal(curT_world, invGridRot);
-            Vector3D curU_local = Vector3D.TransformNormal(curU_world, invGridRot);
-            Vector3D curR_local = Vector3D.TransformNormal(curR_world, invGridRot);
-
-            Vector3D desT_local = Vector3D.TransformNormal(desT_world, invGridRot);
-            Vector3D desU_local = Vector3D.TransformNormal(desU_world, invGridRot);
-            Vector3D desR_local = Vector3D.TransformNormal(desR_world, invGridRot);
-
-            // ---- build torque directly in LOCAL space ----
-            Vector3D torqueLocal = Vector3D.Zero;
-
-            var x = AddAxisTorqueLocal(curR_local, desR_local);
-            var y = AddAxisTorqueLocal(curU_local, desU_local);
-            var z = AddAxisTorqueLocal(curT_local, desT_local);
-
-            Visualization.DrawLine(heldGrid.Physics.CenterOfMassWorld, curR_world * 1.2, 255, 0, 0);
-            Visualization.DrawLine(heldGrid.Physics.CenterOfMassWorld + curR_world * 1.2, curR_world * x.Length(), 0, 0, 0);
-            Visualization.DrawLine(heldGrid.Physics.CenterOfMassWorld + desR_world * 1.2, desR_world * 0.5, 255, 0, 0);
-            Visualization.DrawLine(heldGrid.Physics.CenterOfMassWorld, curU_world * 1.2, 0, 255, 0);
-            Visualization.DrawLine(heldGrid.Physics.CenterOfMassWorld + curU_world * 1.2, curU_world * y.Length(), 0, 0, 0);
-            Visualization.DrawLine(heldGrid.Physics.CenterOfMassWorld + desU_world * 1.2, desU_world * 0.5, 0, 255, 0);
-            Visualization.DrawLine(heldGrid.Physics.CenterOfMassWorld, curT_world * 1.2, 0, 0, 255);
-            Visualization.DrawLine(heldGrid.Physics.CenterOfMassWorld + curT_world * 1.2, curT_world * z.Length(), 0, 0, 0);
-            Visualization.DrawLine(heldGrid.Physics.CenterOfMassWorld + desT_world * 1.2, desT_world * 0.5, 0, 0, 255);
-
-            torqueLocal = x + y + z;
-            torqueLocal /= 3;
-
-            if (torqueLocal.LengthSquared() < 1e-6f) // keep your heuristic
-            {
-                heldGrid.Physics.AngularVelocity *= 0.3f;
-                angularVelocityDamping          *= 0.3f;
-                return Vector3D.Zero;
-            }
-
-            // --- MASS-BASED STRENGTH SCALING, still local ---
-            float mass = (float)heldGrid.Physics.Mass;
-
-            const float MASS_REF         = 1000f; // "reference mass" where scaling ~0.5
-            const float MIN_MASS_FACTOR  = 0.5f;
-            const float MAX_MASS_FACTOR  = 1.0f;
-
-            float massFactor = 1f / (1f + mass / MASS_REF);
-            massFactor = MathHelper.Clamp(massFactor, MIN_MASS_FACTOR, MAX_MASS_FACTOR);
-
-            torqueLocal *= massFactor;
-
-            return torqueLocal;
-        }
-
-        // operates entirely in GRID-LOCAL space
-        private Vector3D AddAxisTorqueLocal(Vector3D curLocal, Vector3D desLocal)
-        {
-            if (curLocal.LengthSquared() < 1e-6f || desLocal.LengthSquared() < 1e-6f)
-                return Vector3D.Zero;
-
-            curLocal = Vector3D.Normalize(curLocal);
-            desLocal = Vector3D.Normalize(desLocal);
-
-
-            double dot = MathHelper.Clamp(Vector3D.Dot(curLocal, desLocal), -1f, 1f);
-            float angleDeg = MathHelper.ToDegrees((float)Math.Acos(dot));
-
-            Utils.Message($"X:{curLocal.X:0.00},  Y:{curLocal.Y:0.00}, Z:{curLocal.Z:0.00} dot X:{desLocal.X:0.00},  Y:{desLocal.Y:0.00}, Z:{desLocal.Z:0.00} = {dot:0.00}, angle = {angleDeg:0.00} deg");
-
-            if (angleDeg <= DEADZONE_DEG)
-                return Vector3D.Zero;
-
-            // rotation axis IN LOCAL SPACE
-            Vector3D axisLocal = Vector3D.Cross(curLocal, desLocal);
-            if (axisLocal.LengthSquared() < 1e-6f)
-                return Vector3D.Zero;
-
-            // axisLocal = Vector3D.Normalize(axisLocal);
-
-            // you can scale by angleDeg if you want "stronger when farther away",
-            // but for now keep magnitude ~1 like your original code:
-            return axisLocal;
-        }
-
-
         private static Vector3D GetFaceDirWorld(MatrixD gridMatrix, int faceIndex)
         {
             switch (faceIndex)
@@ -972,7 +858,7 @@ namespace mz_00956.ImprovisedEngineering
                 default: return Vector3D.Zero;
             }
         }
-
+        
         private static readonly int[][] FaceUpRing =
         {
             // towards 0: +F → U+, R+, U-, R-
